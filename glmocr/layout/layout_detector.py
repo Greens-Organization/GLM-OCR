@@ -6,6 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Dict, Optional
 
+import cv2
 import torch
 import numpy as np
 from PIL import Image
@@ -77,6 +78,55 @@ class PPDocLayoutDetector(BaseLayoutDetector):
         self._model = self._model.to(self._device)
         if self.id2label is None:
             self.id2label = self._model.config.id2label
+        
+        # Patch upstream _extract_polygon_points_by_masks to guard against
+        # empty mask crops that crash cv2.resize with !ssize.empty().
+        def _safe_extract(boxes, masks, scale_ratio):
+            scale_w, scale_h = scale_ratio[0] / 4, scale_ratio[1] / 4
+            mask_h, mask_w = masks.shape[1:]
+            polygon_points = []
+
+            for i in range(len(boxes)):
+                x_min, y_min, x_max, y_max = boxes[i].astype(np.int32)
+                box_w, box_h = x_max - x_min, y_max - y_min
+                rect = np.array(
+                    [[x_min, y_min], [x_max, y_min],
+                     [x_max, y_max], [x_min, y_max]],
+                    dtype=np.float32,
+                )
+
+                if box_w <= 0 or box_h <= 0:
+                    polygon_points.append(rect)
+                    continue
+
+                x_start = int(round((x_min * scale_w).item()))
+                x_end = int(round((x_max * scale_w).item()))
+                x_start, x_end = np.clip([x_start, x_end], 0, mask_w)
+                y_start = int(round((y_min * scale_h).item()))
+                y_end = int(round((y_max * scale_h).item()))
+                y_start, y_end = np.clip([y_start, y_end], 0, mask_h)
+
+                cropped_mask = masks[i, y_start:y_end, x_start:x_end]
+                if cropped_mask.size == 0:
+                    polygon_points.append(rect)
+                    continue
+
+                resized = cv2.resize(
+                    cropped_mask.astype(np.uint8),
+                    (box_w, box_h),
+                    interpolation=cv2.INTER_NEAREST,
+                )
+                polygon = self._image_processor._mask2polygon(resized)
+                if polygon is not None and len(polygon) < 4:
+                    polygon_points.append(rect)
+                    continue
+                if polygon is not None and len(polygon) > 0:
+                    polygon = polygon + np.array([x_min, y_min])
+                polygon_points.append(polygon)
+
+            return polygon_points
+
+        self._image_processor._extract_polygon_points_by_masks = _safe_extract
         logger.debug(f"PP-DocLayoutV3 loaded on device: {self._device}")
 
     def stop(self):
@@ -252,28 +302,6 @@ class PPDocLayoutDetector(BaseLayoutDetector):
             target_sizes = torch.tensor(
                 [img.size[::-1] for img in chunk_pil], device=self._device
             )
-            try:
-                if hasattr(outputs, "pred_boxes") and outputs.pred_boxes is not None:
-                    pred_boxes = outputs.pred_boxes
-                    if hasattr(outputs, "out_masks") and outputs.out_masks is not None:
-                        mask_h, mask_w = outputs.out_masks.shape[-2:]
-                    else:
-                        mask_h, mask_w = 200, 200
-                    min_norm_w = 1.0 / mask_w
-                    min_norm_h = 1.0 / mask_h
-                    box_wh = pred_boxes[..., 2:4]
-                    valid_mask = (box_wh[..., 0] > min_norm_w) & (
-                        box_wh[..., 1] > min_norm_h
-                    )
-                    if hasattr(outputs, "logits") and outputs.logits is not None:
-                        invalid_mask = ~valid_mask
-                        if invalid_mask.any():
-                            outputs.logits.masked_fill_(
-                                invalid_mask.unsqueeze(-1), -100.0
-                            )
-            except Exception as e:
-                logger.warning("Pre-filter failed (%s), continuing...", e)
-
             if self.threshold_by_class:
                 # Use the lowest threshold (per-class or global fallback)
                 # so post-processing doesn't discard valid detections early.
