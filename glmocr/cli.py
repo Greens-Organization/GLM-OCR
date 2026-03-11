@@ -80,6 +80,18 @@ def _queue_stats_updater(glm_parser: GlmOcr, pbar: tqdm, stop: threading.Event):
             )
 
 
+def _auto_coerce(raw: str):
+    """Coerce a CLI string to a Python scalar.
+    """
+    if raw.lower() in ("true", "yes"):
+        return True
+    if raw.lower() in ("false", "no"):
+        return False
+    if raw.lower() in ("null", "none", "~"):
+        return None
+    return raw
+
+
 def main():
     """CLI entrypoint."""
     parser = argparse.ArgumentParser(
@@ -98,6 +110,10 @@ def main():
 
     # Specify config file
   glmocr parse image.png --config config.yaml
+
+    # Override config values via --set
+  glmocr parse image.png --set pipeline.ocr_api.api_port 8080
+  glmocr parse image.png --set pipeline.layout.use_polygon true --set pipeline.maas.enabled false
         """,
     )
 
@@ -148,6 +164,15 @@ def main():
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Log level (default: INFO)",
     )
+    parse_parser.add_argument(
+        "--set",
+        nargs=2,
+        action="append",
+        metavar=("KEY", "VALUE"),
+        dest="config_overrides",
+        help="Override a config value using dotted path, e.g. "
+             "--set pipeline.ocr_api.api_port 8080",
+    )
 
     args = parser.parse_args()
 
@@ -164,7 +189,12 @@ def main():
 
         save_layout_vis = not args.no_layout_vis
 
-        with GlmOcr(config_path=args.config) as glm_parser:
+        # Build dotted-path overrides from --set KEY VALUE pairs
+        dotted_overrides: dict = {}
+        for key, value in (args.config_overrides or []):
+            dotted_overrides[key] = _auto_coerce(value)
+
+        with GlmOcr(config_path=args.config, _dotted=dotted_overrides) as glm_parser:
             total_files = len(image_paths)
 
             pbar = tqdm(

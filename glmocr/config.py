@@ -296,7 +296,13 @@ class GlmOcrConfig(_BaseConfig):
         config_path: Optional[Union[str, Path]] = None,
         **overrides: Any,
     ) -> "GlmOcrConfig":
-        """Build config with priority: *overrides* > env-vars > YAML > defaults.
+        """Build config with layered priority (highest → lowest):
+
+        1. CLI ``--set`` overrides (``_dotted`` dict)
+        2. Keyword overrides (``api_key``, ``mode``, …)
+        3. ``GLMOCR_*`` environment variables / ``.env`` file
+        4. YAML config file
+        5. Built-in defaults
 
         This is the **agent-friendly** entry-point.  An agent (or any
         programmatic caller) can configure the SDK entirely through keyword
@@ -329,7 +335,8 @@ class GlmOcrConfig(_BaseConfig):
             # With a custom YAML base
             cfg = GlmOcrConfig.from_env(config_path="my.yaml", api_key="sk")
         """
-        # 1. YAML baseline
+        # --- Priority (applied in order, later wins): ---
+        # 1. YAML baseline (lowest)
         yaml_path = Path(config_path or cls.default_path())
         if yaml_path.exists():
             data: Dict[str, Any] = (
@@ -341,12 +348,12 @@ class GlmOcrConfig(_BaseConfig):
                 raise FileNotFoundError(f"Config file not found: {yaml_path}")
             data = {}
 
-        # 2. Environment variable overrides
+        # 2. Environment variable overrides (.env + GLMOCR_*)
         env_data = _collect_env_overrides()
         if env_data:
             _deep_merge(data, env_data)
 
-        # 3. Keyword overrides (flat convenience names → nested paths)
+        # 3. Keyword overrides (Python API convenience names)
         _KW_MAP = {
             "api_key": "pipeline.maas.api_key",
             "api_url": "pipeline.maas.api_url",
@@ -365,6 +372,10 @@ class GlmOcrConfig(_BaseConfig):
                 raw = overrides[kw]
                 _set_nested(data, dotted, _coerce_env_value(dotted, str(raw)))
 
+        # 4. CLI --set overrides (highest priority)
+        for dotted, value in overrides.get("_dotted", {}).items():
+            _set_nested(data, dotted, value)
+
         return cls.model_validate(data)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -375,11 +386,12 @@ def load_config(
     path: Optional[Union[str, Path]] = None,
     **overrides: Any,
 ) -> GlmOcrConfig:
-    """Load config with priority: *overrides* > env-vars > YAML > defaults.
+    """Load config with priority: CLI --set > keyword > env-vars > YAML > defaults.
 
     This is a drop-in replacement for the old ``load_config(path)``.
     When called without arguments it behaves exactly as before (YAML only).
     When keyword overrides or ``GLMOCR_*`` env-vars are present they take
-    precedence.
+    precedence.  CLI ``--set`` overrides (passed via ``_dotted``) have the
+    highest priority.
     """
     return GlmOcrConfig.from_env(config_path=path, **overrides)

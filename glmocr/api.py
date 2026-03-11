@@ -83,6 +83,7 @@ class GlmOcr:
         ocr_api_host: Optional[str] = None,
         ocr_api_port: Optional[int] = None,
         cuda_visible_devices: Optional[str] = None,
+        **kwargs: Any,
     ):
         """Initialize GlmOcr.
 
@@ -116,6 +117,7 @@ class GlmOcr:
             ocr_api_host=ocr_api_host,
             ocr_api_port=ocr_api_port,
             cuda_visible_devices=cuda_visible_devices,
+            **kwargs,
         )
         # Apply logging config for API/SDK usage.
         ensure_logging_configured(

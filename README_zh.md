@@ -169,6 +169,10 @@ glmocr parse examples/source/code.png --config my_config.yaml
 
 # 开启 debug 日志（包含 profiling）
 glmocr parse examples/source/code.png --log-level DEBUG
+
+# 通过 --set 覆盖任意配置项（使用 dotted path，可多次使用）
+glmocr parse examples/source/code.png --set pipeline.ocr_api.api_port 8080
+glmocr parse examples/source/ --set pipeline.layout.use_polygon true --set logging.level DEBUG
 ```
 
 #### Python API
@@ -213,6 +217,14 @@ curl -X POST http://localhost:5002/glmocr/parse \
 - 如果要处理多个独立文档，请多次调用接口（一次请求一个文档）。
 
 ### 配置
+
+配置加载优先级（从高到低）：
+
+1. CLI `--set` 参数
+2. Python API 关键字参数
+3. `GLMOCR_*` 环境变量 / `.env` 文件
+4. YAML 配置文件
+5. 内置默认值
 
 完整配置见 `glmocr/config.yaml`：
 

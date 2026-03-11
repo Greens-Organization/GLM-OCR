@@ -168,6 +168,10 @@ glmocr parse examples/source/code.png --config my_config.yaml
 
 # Enable debug logging with profiling
 glmocr parse examples/source/code.png --log-level DEBUG
+
+# Override any config value via --set (dotted path, repeatable)
+glmocr parse examples/source/code.png --set pipeline.ocr_api.api_port 8080
+glmocr parse examples/source/ --set pipeline.layout.use_polygon true --set logging.level DEBUG
 ```
 
 #### Python API
@@ -212,6 +216,14 @@ Semantics:
 - For multiple independent documents, call the endpoint multiple times (one document per request).
 
 ### Configuration
+
+Configuration priority (highest to lowest):
+
+1. CLI `--set` overrides
+2. Python API keyword arguments
+3. `GLMOCR_*` environment variables / `.env` file
+4. YAML config file
+5. Built-in defaults
 
 Full configuration in `glmocr/config.yaml`:
 
