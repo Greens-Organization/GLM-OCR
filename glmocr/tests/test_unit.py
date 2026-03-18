@@ -25,6 +25,177 @@ class TestConfig:
         assert isinstance(cfg, dict)
 
 
+class TestLayoutDeviceUnit:
+    """Unit tests for layout device selection and config plumbing (mocked)."""
+
+    def test_layout_config_device_default_is_none(self):
+        """LayoutConfig.device defaults to None (auto-select)."""
+        from glmocr.config import LayoutConfig
+
+        cfg = LayoutConfig()
+        assert cfg.device is None
+
+    def test_layout_config_device_cpu(self):
+        """LayoutConfig accepts 'cpu' as device."""
+        from glmocr.config import LayoutConfig
+
+        cfg = LayoutConfig(device="cpu")
+        assert cfg.device == "cpu"
+
+    def test_layout_config_device_cuda(self):
+        """LayoutConfig accepts 'cuda' as device."""
+        from glmocr.config import LayoutConfig
+
+        cfg = LayoutConfig(device="cuda")
+        assert cfg.device == "cuda"
+
+    def test_layout_config_device_cuda_index(self):
+        """LayoutConfig accepts 'cuda:1' as device."""
+        from glmocr.config import LayoutConfig
+
+        cfg = LayoutConfig(device="cuda:1")
+        assert cfg.device == "cuda:1"
+
+    def test_env_var_sets_device(self, monkeypatch):
+        """GLMOCR_LAYOUT_DEVICE env var propagates to config."""
+        from glmocr.config import GlmOcrConfig, _ENV_MAP, ENV_PREFIX
+
+        # Clear other GLMOCR_ vars to avoid interference
+        for suffix in _ENV_MAP:
+            monkeypatch.delenv(f"{ENV_PREFIX}{suffix}", raising=False)
+        monkeypatch.setattr("glmocr.config._find_dotenv", lambda: None)
+
+        monkeypatch.setenv("GLMOCR_LAYOUT_DEVICE", "cpu")
+        cfg = GlmOcrConfig.from_env()
+        assert cfg.pipeline.layout.device == "cpu"
+
+    def test_from_env_layout_device_kwarg(self, monkeypatch):
+        """layout_device kwarg in from_env() sets device correctly."""
+        from glmocr.config import GlmOcrConfig, _ENV_MAP, ENV_PREFIX
+
+        for suffix in _ENV_MAP:
+            monkeypatch.delenv(f"{ENV_PREFIX}{suffix}", raising=False)
+        monkeypatch.setattr("glmocr.config._find_dotenv", lambda: None)
+
+        cfg = GlmOcrConfig.from_env(layout_device="cuda:1")
+        assert cfg.pipeline.layout.device == "cuda:1"
+
+    # Minimal config kwargs for mocked detector tests
+    _MOCK_LAYOUT_KWARGS = dict(
+        model_dir="dummy",
+        id2label={0: "text"},
+        label_task_mapping={"text": ["text"]},
+    )
+
+    def _mock_detector(self, device_val):
+        """Create a PPDocLayoutDetector with mocked model, ready for start()."""
+        from glmocr.config import LayoutConfig
+        from glmocr.layout.layout_detector import PPDocLayoutDetector
+
+        cfg = LayoutConfig(device=device_val, **self._MOCK_LAYOUT_KWARGS)
+        det = PPDocLayoutDetector(cfg)
+
+        mock_model = MagicMock()
+        mock_model.to = MagicMock(return_value=mock_model)
+        mock_model.eval = MagicMock()
+        mock_model.config = MagicMock()
+        mock_model.config.id2label = {0: "text"}
+        mock_processor = MagicMock()
+        return det, mock_model, mock_processor
+
+    def test_detector_device_selection_explicit_cpu(self):
+        """When config.device='cpu', detector picks CPU even if CUDA is available."""
+        det, mock_model, mock_proc = self._mock_detector("cpu")
+
+        with (
+            patch(
+                "glmocr.layout.layout_detector.PPDocLayoutV3ForObjectDetection.from_pretrained",
+                return_value=mock_model,
+            ),
+            patch(
+                "glmocr.layout.layout_detector.PPDocLayoutV3ImageProcessorFast.from_pretrained",
+                return_value=mock_proc,
+            ),
+        ):
+            det.start()
+
+        assert det._device == "cpu"
+        mock_model.to.assert_called_with("cpu")
+
+    def test_detector_device_selection_explicit_cuda(self):
+        """When config.device='cuda:1', detector picks that device."""
+        det, mock_model, mock_proc = self._mock_detector("cuda:1")
+
+        with (
+            patch(
+                "glmocr.layout.layout_detector.PPDocLayoutV3ForObjectDetection.from_pretrained",
+                return_value=mock_model,
+            ),
+            patch(
+                "glmocr.layout.layout_detector.PPDocLayoutV3ImageProcessorFast.from_pretrained",
+                return_value=mock_proc,
+            ),
+        ):
+            det.start()
+
+        assert det._device == "cuda:1"
+        mock_model.to.assert_called_with("cuda:1")
+
+    def test_detector_device_selection_auto_fallback_cpu(self):
+        """When config.device=None and CUDA unavailable, auto-selects CPU."""
+        import torch
+
+        det, mock_model, mock_proc = self._mock_detector(None)
+
+        with (
+            patch(
+                "glmocr.layout.layout_detector.PPDocLayoutV3ForObjectDetection.from_pretrained",
+                return_value=mock_model,
+            ),
+            patch(
+                "glmocr.layout.layout_detector.PPDocLayoutV3ImageProcessorFast.from_pretrained",
+                return_value=mock_proc,
+            ),
+            patch.object(torch.cuda, "is_available", return_value=False),
+        ):
+            det.start()
+
+        assert det._device == "cpu"
+
+    def test_detector_device_selection_auto_cuda(self):
+        """When config.device=None and CUDA available, auto-selects cuda:{cuda_visible_devices}."""
+        import torch
+        from glmocr.config import LayoutConfig
+        from glmocr.layout.layout_detector import PPDocLayoutDetector
+
+        cfg = LayoutConfig(
+            device=None, cuda_visible_devices="1", **self._MOCK_LAYOUT_KWARGS
+        )
+        det = PPDocLayoutDetector(cfg)
+
+        mock_model = MagicMock()
+        mock_model.to = MagicMock(return_value=mock_model)
+        mock_model.eval = MagicMock()
+        mock_model.config = MagicMock()
+        mock_model.config.id2label = {0: "text"}
+        mock_proc = MagicMock()
+
+        with (
+            patch(
+                "glmocr.layout.layout_detector.PPDocLayoutV3ForObjectDetection.from_pretrained",
+                return_value=mock_model,
+            ),
+            patch(
+                "glmocr.layout.layout_detector.PPDocLayoutV3ImageProcessorFast.from_pretrained",
+                return_value=mock_proc,
+            ),
+            patch.object(torch.cuda, "is_available", return_value=True),
+        ):
+            det.start()
+
+        assert det._device == "cuda:1"
+
+
 class TestPageLoader:
     """Tests for PageLoader."""
 
