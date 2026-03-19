@@ -28,6 +28,18 @@ class TestConfig:
 class TestLayoutDeviceUnit:
     """Unit tests for layout device selection and config plumbing (mocked)."""
 
+    @staticmethod
+    def _require_layout_runtime():
+        """Require optional self-hosted layout deps, otherwise skip tests."""
+        torch = pytest.importorskip(
+            "torch", reason="layout device unit tests require optional selfhosted deps"
+        )
+        pytest.importorskip(
+            "transformers",
+            reason="layout device unit tests require optional selfhosted deps",
+        )
+        return torch
+
     def test_layout_config_device_default_is_none(self):
         """LayoutConfig.device defaults to None (auto-select)."""
         from glmocr.config import LayoutConfig
@@ -89,6 +101,7 @@ class TestLayoutDeviceUnit:
 
     def _mock_detector(self, device_val):
         """Create a PPDocLayoutDetector with mocked model, ready for start()."""
+        self._require_layout_runtime()
         from glmocr.config import LayoutConfig
         from glmocr.layout.layout_detector import PPDocLayoutDetector
 
@@ -143,7 +156,7 @@ class TestLayoutDeviceUnit:
 
     def test_detector_device_selection_auto_fallback_cpu(self):
         """When config.device=None and CUDA unavailable, auto-selects CPU."""
-        import torch
+        torch = self._require_layout_runtime()
 
         det, mock_model, mock_proc = self._mock_detector(None)
 
@@ -164,7 +177,7 @@ class TestLayoutDeviceUnit:
 
     def test_detector_device_selection_auto_cuda(self):
         """When config.device=None and CUDA available, auto-selects cuda:{cuda_visible_devices}."""
-        import torch
+        torch = self._require_layout_runtime()
         from glmocr.config import LayoutConfig
         from glmocr.layout.layout_detector import PPDocLayoutDetector
 
