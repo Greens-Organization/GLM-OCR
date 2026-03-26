@@ -196,7 +196,7 @@ pipeline:
 
     # Use polygon masks for region cropping and visualization.
     # When true, regions are cropped using the polygon outline from layout
-    # detection (more precise, masks out content outside the polygon), 
+    # detection (more precise, masks out content outside the polygon),
     # recommended for documents with rotating or staggered layouts.
     # When false, regions are cropped using the bounding box only (faster, simpler),
     # recommended for regular documents without rotating.

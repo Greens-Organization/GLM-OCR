@@ -25,9 +25,17 @@ from glmocr.parser_result import PipelineResult
 from glmocr.postprocess import ResultFormatter
 from glmocr.utils.logging import get_logger
 
-from glmocr.pipeline._common import extract_image_sources, extract_ocr_content, make_original_inputs
+from glmocr.pipeline._common import (
+    extract_image_sources,
+    extract_ocr_content,
+    make_original_inputs,
+)
 from glmocr.pipeline._state import PipelineState
-from glmocr.pipeline._workers import data_loading_worker, layout_worker, recognition_worker
+from glmocr.pipeline._workers import (
+    data_loading_worker,
+    layout_worker,
+    recognition_worker,
+)
 from glmocr.pipeline._unit_tracker import UnitTracker
 
 if TYPE_CHECKING:
@@ -71,7 +79,8 @@ class Pipeline:
         self.page_loader = PageLoader(config.page_loader)
         self.ocr_client = OCRClient(config.ocr_api)
         self.result_formatter = (
-            result_formatter if result_formatter is not None
+            result_formatter
+            if result_formatter is not None
             else ResultFormatter(config.result_formatter)
         )
 
@@ -82,6 +91,7 @@ class Pipeline:
 
             if PPDocLayoutDetector is None:
                 from glmocr.layout import _raise_layout_import_error
+
                 _raise_layout_import_error()
 
             self.layout_detector = PPDocLayoutDetector(config.layout)
@@ -143,7 +153,12 @@ class Pipeline:
         )
         t2 = threading.Thread(
             target=layout_worker,
-            args=(state, self.layout_detector, save_layout_visualization, self.config.layout.use_polygon),
+            args=(
+                state,
+                self.layout_detector,
+                save_layout_visualization,
+                self.config.layout.use_polygon,
+            ),
             daemon=True,
         )
         t3 = threading.Thread(
@@ -256,19 +271,19 @@ class Pipeline:
         """
         raw = []
         for page_results in grouped_results:
-            sorted_results = sorted(
-                page_results, key=lambda x: x.get("index", 0)
+            sorted_results = sorted(page_results, key=lambda x: x.get("index", 0))
+            raw.append(
+                [
+                    {
+                        "index": i,
+                        "label": r.get("label", "text"),
+                        "content": r.get("content", ""),
+                        "bbox_2d": r.get("bbox_2d"),
+                        "polygon": r.get("polygon"),
+                    }
+                    for i, r in enumerate(sorted_results)
+                ]
             )
-            raw.append([
-                {
-                    "index": i,
-                    "label": r.get("label", "text"),
-                    "content": r.get("content", ""),
-                    "bbox_2d": r.get("bbox_2d"),
-                    "polygon": r.get("polygon"),
-                }
-                for i, r in enumerate(sorted_results)
-            ])
         return raw
 
     def _process_passthrough(
@@ -310,7 +325,9 @@ class Pipeline:
         next_to_emit = 0
         num_units = tracker.num_units
 
-        while (next_to_emit < num_units) if preserve_order else (len(built) < num_units):
+        while (
+            (next_to_emit < num_units) if preserve_order else (len(built) < num_units)
+        ):
             if preserve_order:
                 while next_to_emit in pending:
                     yield pending.pop(next_to_emit)
@@ -342,7 +359,8 @@ class Pipeline:
             cropped_images = state.collect_cropped_images_for_unit(page_indices)
             raw_json = self._build_raw_json(grouped)
             json_u, md_u, image_files = self.result_formatter.process(
-                grouped, cropped_images=cropped_images or None,
+                grouped,
+                cropped_images=cropped_images or None,
             )
 
             vis_images = {}

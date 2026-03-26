@@ -91,7 +91,9 @@ class PageLoader:
     # Page loading
     # =========================================================================
 
-    def load_pages(self, sources: Union[str, bytes, List[Union[str, bytes]]]) -> List[Image.Image]:
+    def load_pages(
+        self, sources: Union[str, bytes, List[Union[str, bytes]]]
+    ) -> List[Image.Image]:
         """Load sources into a list of PIL Images.
 
         Supports image files, PDFs, and raw bytes (PDFs are expanded into
@@ -139,7 +141,9 @@ class PageLoader:
             unit_indices.extend([unit_idx] * len(pages))
         return all_pages, unit_indices
 
-    def iter_pages_with_unit_indices(self, sources: Union[str, bytes, List[Union[str, bytes]]]):
+    def iter_pages_with_unit_indices(
+        self, sources: Union[str, bytes, List[Union[str, bytes]]]
+    ):
         """Stream pages one at a time with unit index per page.
 
         Yields (page, unit_idx) so the pipeline can enqueue each page as soon

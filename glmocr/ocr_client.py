@@ -326,7 +326,9 @@ class OCRClient:
                                 "error": f"Invalid OpenAI API response format: {str(e)}"
                             }, 500
 
-                    return {"choices": [{"message": {"content": (output or "").strip()}}]}, 200
+                    return {
+                        "choices": [{"message": {"content": (output or "").strip()}}]
+                    }, 200
 
                 status = int(response.status_code)
                 body_preview = (response.text or "")[:500]

@@ -38,8 +38,10 @@ def resolve_image_regions(
     """
     has_images = any(
         r.get("label") == "image"
-        for page in json_result if isinstance(page, list)
-        for r in page if isinstance(r, dict)
+        for page in json_result
+        if isinstance(page, list)
+        for r in page
+        if isinstance(r, dict)
     )
     if not has_images:
         return json_result, markdown_result, {}
@@ -49,7 +51,9 @@ def resolve_image_regions(
     try:
         if path.suffix.lower() == ".pdf" and path.is_file():
             loaded_images = pdf_to_images_pil(
-                str(path), dpi=200, max_width_or_height=3500,
+                str(path),
+                dpi=200,
+                max_width_or_height=3500,
             )
         elif path.is_file():
             img = Image.open(str(path))
@@ -98,7 +102,9 @@ def resolve_image_regions(
                 except Exception as e:
                     logger.warning(
                         "Failed to crop image (page=%d, bbox=%s): %s",
-                        page_idx, bbox, e,
+                        page_idx,
+                        bbox,
+                        e,
                     )
             page_copy.append(region_copy)
         updated_json.append(page_copy)

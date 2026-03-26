@@ -442,7 +442,9 @@ class GlmOcr:
         )
 
         json_result, markdown_result, image_files = resolve_image_regions(
-            json_result, markdown_result, source,
+            json_result,
+            markdown_result,
+            source,
         )
 
         # Create PipelineResult
@@ -462,15 +464,14 @@ class GlmOcr:
         return result
 
     def _build_selfhosted_request(
-        self, images: List[Union[str, bytes, Path]],
+        self,
+        images: List[Union[str, bytes, Path]],
     ) -> Dict[str, Any]:
         """Build request from mixed inputs (paths, URLs, or raw bytes)."""
         messages: List[Dict[str, Any]] = [{"role": "user", "content": []}]
         for image in images:
             if isinstance(image, bytes):
-                messages[0]["content"].append(
-                    {"type": "image_bytes", "data": image}
-                )
+                messages[0]["content"].append({"type": "image_bytes", "data": image})
             else:
                 url = self._to_url(image)
                 messages[0]["content"].append(

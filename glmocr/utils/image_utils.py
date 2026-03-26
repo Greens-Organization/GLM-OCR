@@ -2,8 +2,9 @@
 
 import io
 import cv2
-import base64
+import fitz
 import math
+import base64
 from io import BytesIO
 
 import numpy as np
@@ -264,8 +265,6 @@ def image_tensor_to_base64(image_tensor, image_format):
 # PDF rendering via PyMuPDF (fitz)
 # -----------------------------------------------------------------------------
 
-import fitz
-
 
 def _render_page_to_pil(page, dpi: int = 200, max_width_or_height: int = 3500):
     """Render a PDF page to PIL Image via PyMuPDF.
@@ -379,7 +378,9 @@ def pdf_to_images_pil_iter(
                 )
                 yield image
             except Exception as e:
-                logger.warning("Skipping page %d of '%s' (render failed): %s", i, label, e)
+                logger.warning(
+                    "Skipping page %d of '%s' (render failed): %s", i, label, e
+                )
     finally:
         if doc is not None:
             doc.close()

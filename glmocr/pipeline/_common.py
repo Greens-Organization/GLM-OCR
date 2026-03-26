@@ -39,14 +39,12 @@ def make_original_inputs(sources: List[Union[str, bytes]]) -> List[str]:
 
 def extract_ocr_content(response: Dict[str, Any]) -> str:
     """Pull the content string out of an OpenAI-style OCR response."""
-    return (
-        response.get("choices", [{}])[0].get("message", {}).get("content", "")
-    )
+    return response.get("choices", [{}])[0].get("message", {}).get("content", "")
 
 
 # ── Queue message "identifier" field values ──────────────────────────
 # Every queue message is a dict with an "identifier" key.
 IDENTIFIER_IMAGE = "image"
-IDENTIFIER_UNIT_DONE = "unit_done"   # t1 → t2: all pages for one input unit are queued
+IDENTIFIER_UNIT_DONE = "unit_done"  # t1 → t2: all pages for one input unit are queued
 IDENTIFIER_REGION = "region"
 IDENTIFIER_DONE = "done"

@@ -114,15 +114,14 @@ def clean_formula_number(number_content: str) -> str:
         number_clean = number_clean[1:-1]
     return number_clean
 
+
 def normalize_inline_formula(content: str) -> str:
     """Normalize inline formula spacing.
 
     ``$ x $`` → ``$x$``, and ensure a space between surrounding text
     and the ``$...$`` delimiter.
     """
-    INLINE_FORMULA_RE = re.compile(
-        r"(?<!\$)\$\s*((?:[^$\\]|\\.)+?)\s*\$(?!\$)"
-    )
+    INLINE_FORMULA_RE = re.compile(r"(?<!\$)\$\s*((?:[^$\\]|\\.)+?)\s*\$(?!\$)")
     if "$" not in content:
         return content
 

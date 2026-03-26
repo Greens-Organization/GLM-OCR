@@ -47,6 +47,7 @@ logger = get_logger(__name__)
 # Stage 1: Data Loading
 # ======================================================================
 
+
 def data_loading_worker(
     state: PipelineState,
     page_loader: "PageLoader",
@@ -81,21 +82,27 @@ def data_loading_worker(
                 break
 
             if prev_unit_idx is not None and unit_idx != prev_unit_idx:
-                if not state.safe_put(state.page_queue, {
-                    "identifier": IDENTIFIER_UNIT_DONE,
-                    "unit_idx": prev_unit_idx,
-                }):
+                if not state.safe_put(
+                    state.page_queue,
+                    {
+                        "identifier": IDENTIFIER_UNIT_DONE,
+                        "unit_idx": prev_unit_idx,
+                    },
+                ):
                     break
                 sent_unit_done.add(prev_unit_idx)
 
             state.register_page(page_idx, unit_idx)
             state.images_dict[page_idx] = page
-            if not state.safe_put(state.page_queue, {
-                "identifier": IDENTIFIER_IMAGE,
-                "page_idx": page_idx,
-                "unit_idx": unit_idx,
-                "image": page,
-            }):
+            if not state.safe_put(
+                state.page_queue,
+                {
+                    "identifier": IDENTIFIER_IMAGE,
+                    "page_idx": page_idx,
+                    "unit_idx": unit_idx,
+                    "image": page,
+                },
+            ):
                 break
             unit_indices_list.append(unit_idx)
             page_idx += 1
@@ -105,18 +112,24 @@ def data_loading_worker(
 
         if not state.is_shutdown:
             if prev_unit_idx is not None:
-                state.safe_put(state.page_queue, {
-                    "identifier": IDENTIFIER_UNIT_DONE,
-                    "unit_idx": prev_unit_idx,
-                })
+                state.safe_put(
+                    state.page_queue,
+                    {
+                        "identifier": IDENTIFIER_UNIT_DONE,
+                        "unit_idx": prev_unit_idx,
+                    },
+                )
                 sent_unit_done.add(prev_unit_idx)
 
             for u in range(num_units):
                 if u not in sent_unit_done:
-                    state.safe_put(state.page_queue, {
-                        "identifier": IDENTIFIER_UNIT_DONE,
-                        "unit_idx": u,
-                    })
+                    state.safe_put(
+                        state.page_queue,
+                        {
+                            "identifier": IDENTIFIER_UNIT_DONE,
+                            "unit_idx": u,
+                        },
+                    )
 
             state.safe_put(state.page_queue, {"identifier": IDENTIFIER_DONE})
     except Exception as e:
@@ -129,6 +142,7 @@ def data_loading_worker(
 # ======================================================================
 # Stage 2: Layout Detection
 # ======================================================================
+
 
 def layout_worker(
     state: PipelineState,
@@ -174,8 +188,12 @@ def layout_worker(
 
                 if len(batch_images) >= layout_detector.batch_size:
                     _flush_layout_batch(
-                        state, layout_detector, batch_images, batch_page_indices,
-                        save_visualization, global_start_idx,
+                        state,
+                        layout_detector,
+                        batch_images,
+                        batch_page_indices,
+                        save_visualization,
+                        global_start_idx,
                         use_polygon=use_polygon,
                     )
                     global_start_idx += len(batch_page_indices)
@@ -187,8 +205,12 @@ def layout_worker(
                 unit_idx = msg["unit_idx"]
                 if batch_images:
                     _flush_layout_batch(
-                        state, layout_detector, batch_images, batch_page_indices,
-                        save_visualization, global_start_idx,
+                        state,
+                        layout_detector,
+                        batch_images,
+                        batch_page_indices,
+                        save_visualization,
+                        global_start_idx,
                         use_polygon=use_polygon,
                     )
                     global_start_idx += len(batch_page_indices)
@@ -198,20 +220,25 @@ def layout_worker(
 
                 pages_for_unit = unit_page_indices.get(unit_idx, [])
                 region_count = sum(
-                    len(state.layout_results_dict.get(pi, []))
-                    for pi in pages_for_unit
+                    len(state.layout_results_dict.get(pi, [])) for pi in pages_for_unit
                 )
                 state.finalize_unit(unit_idx, region_count)
                 logger.debug(
                     "Unit %d finalised: %d pages, %d regions",
-                    unit_idx, len(pages_for_unit), region_count,
+                    unit_idx,
+                    len(pages_for_unit),
+                    region_count,
                 )
 
             elif identifier == IDENTIFIER_DONE:
                 if batch_images:
                     _flush_layout_batch(
-                        state, layout_detector, batch_images, batch_page_indices,
-                        save_visualization, global_start_idx,
+                        state,
+                        layout_detector,
+                        batch_images,
+                        batch_page_indices,
+                        save_visualization,
+                        global_start_idx,
                         use_polygon=use_polygon,
                     )
                 state.safe_put(state.region_queue, {"identifier": IDENTIFIER_DONE})
@@ -246,7 +273,8 @@ def _flush_layout_batch(
     except Exception as e:
         logger.warning(
             "Layout detection failed for pages %s, skipping batch: %s",
-            batch_page_indices, e,
+            batch_page_indices,
+            e,
         )
         for page_idx in batch_page_indices:
             state.layout_results_dict[page_idx] = []
@@ -263,23 +291,29 @@ def _flush_layout_batch(
             except Exception as e:
                 logger.warning(
                     "Failed to crop region on page %d (bbox=%s), skipping: %s",
-                    page_idx, region.get("bbox_2d"), e,
+                    page_idx,
+                    region.get("bbox_2d"),
+                    e,
                 )
                 region["content"] = ""
                 state.add_recognition_result(page_idx, region)
                 continue
-            if not state.safe_put(state.region_queue, {
-                "identifier": IDENTIFIER_REGION,
-                "page_idx": page_idx,
-                "cropped_image": cropped,
-                "region": region,
-            }):
+            if not state.safe_put(
+                state.region_queue,
+                {
+                    "identifier": IDENTIFIER_REGION,
+                    "page_idx": page_idx,
+                    "cropped_image": cropped,
+                    "region": region,
+                },
+            ):
                 return
 
 
 # ======================================================================
 # Stage 3: VLM Recognition
 # ======================================================================
+
 
 def recognition_worker(
     state: PipelineState,
@@ -328,7 +362,8 @@ def recognition_worker(
                     state.add_recognition_result(msg["page_idx"], msg["region"])
                 else:
                     req = page_loader.build_request_from_image(
-                        msg["cropped_image"], msg["region"]["task_type"],
+                        msg["cropped_image"],
+                        msg["region"]["task_type"],
                     )
                     del msg["cropped_image"]
                     future = executor.submit(ocr_client.process, req)
@@ -358,6 +393,7 @@ def recognition_worker(
 # ------------------------------------------------------------------
 # Recognition helpers
 # ------------------------------------------------------------------
+
 
 def _collect_done_futures(
     futures: Dict[Any, Dict[str, Any]],
@@ -390,7 +426,6 @@ def _handle_future_result(
         logger.warning("Recognition failed for page %d: %s", page_idx, e)
         region["content"] = None
     state.add_recognition_result(page_idx, region)
-
 
 
 def _wait_for_any(futures: Dict) -> None:

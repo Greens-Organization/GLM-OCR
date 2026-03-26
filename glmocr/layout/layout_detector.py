@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import TYPE_CHECKING, List, Dict, Optional
+from typing import TYPE_CHECKING, List, Dict
 
 import cv2
 import torch
@@ -78,7 +77,7 @@ class PPDocLayoutDetector(BaseLayoutDetector):
         self._model = self._model.to(self._device)
         if self.id2label is None:
             self.id2label = self._model.config.id2label
-        
+
         # Patch upstream _extract_polygon_points_by_masks to guard against
         # empty mask crops that crash cv2.resize with !ssize.empty().
         def _safe_extract(boxes, masks, scale_ratio):
@@ -90,8 +89,7 @@ class PPDocLayoutDetector(BaseLayoutDetector):
                 x_min, y_min, x_max, y_max = boxes[i].astype(np.int32)
                 box_w, box_h = x_max - x_min, y_max - y_min
                 rect = np.array(
-                    [[x_min, y_min], [x_max, y_min],
-                     [x_max, y_max], [x_min, y_max]],
+                    [[x_min, y_min], [x_max, y_min], [x_max, y_max], [x_min, y_max]],
                     dtype=np.float32,
                 )
 
@@ -286,8 +284,7 @@ class PPDocLayoutDetector(BaseLayoutDetector):
 
         num_images = len(images)
         pil_images = [
-            img.convert("RGB") if img.mode != "RGB" else img
-            for img in images
+            img.convert("RGB") if img.mode != "RGB" else img for img in images
         ]
         all_paddle_format_results = []
 

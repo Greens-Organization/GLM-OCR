@@ -71,9 +71,7 @@ class PipelineResult(BaseParserResult):
         stem = Path(self.original_images[0]).stem if self.original_images else "result"
         for local_idx, (_page_idx, vis_img) in enumerate(vis_items):
             name = (
-                f"{stem}.jpg"
-                if len(vis_items) == 1
-                else f"{stem}_page{local_idx}.jpg"
+                f"{stem}.jpg" if len(vis_items) == 1 else f"{stem}_page{local_idx}.jpg"
             )
             try:
                 vis_img.save(target_dir / name, quality=95)

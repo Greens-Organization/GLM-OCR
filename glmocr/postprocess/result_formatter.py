@@ -184,7 +184,9 @@ class ResultFormatter(BasePostProcessor):
                     # Skip empty or failed content (after formatting)
                     if result["label"] != "image":
                         content = result.get("content")
-                        if content is None or (isinstance(content, str) and content.strip() == ""):
+                        if content is None or (
+                            isinstance(content, str) and content.strip() == ""
+                        ):
                             continue
 
                     # Update index
@@ -222,12 +224,12 @@ class ResultFormatter(BasePostProcessor):
                         bbox = result.get("bbox_2d", [])
                         key = (page_idx, *bbox) if bbox else None
                         img = (
-                            cropped_images.get(key)
-                            if cropped_images and key
-                            else None
+                            cropped_images.get(key) if cropped_images and key else None
                         )
                         if img is not None:
-                            filename = f"{image_prefix}_page{page_idx}_idx{image_counter}.jpg"
+                            filename = (
+                                f"{image_prefix}_page{page_idx}_idx{image_counter}.jpg"
+                            )
                             rel_path = f"imgs/{filename}"
                             image_files[filename] = img
                             result["image_path"] = rel_path
@@ -305,14 +307,14 @@ class ResultFormatter(BasePostProcessor):
         # Formula formatting
         if label == "formula":
             if (
-                content.startswith("$$") 
-                or content.startswith("\\[") 
+                content.startswith("$$")
+                or content.startswith("\\[")
                 or content.startswith("\\(")
             ):
                 content = content[2:].strip()
             if (
-                content.endswith("$$") 
-                or content.endswith("\\]") 
+                content.endswith("$$")
+                or content.endswith("\\]")
                 or content.endswith("\\)")
             ):
                 content = content[:-2].strip()

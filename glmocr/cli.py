@@ -81,8 +81,7 @@ def _queue_stats_updater(glm_parser: GlmOcr, pbar: tqdm, stop: threading.Event):
 
 
 def _auto_coerce(raw: str):
-    """Coerce a CLI string to a Python scalar.
-    """
+    """Coerce a CLI string to a Python scalar."""
     if raw.lower() in ("true", "yes"):
         return True
     if raw.lower() in ("false", "no"):
@@ -171,7 +170,7 @@ def main():
         metavar=("KEY", "VALUE"),
         dest="config_overrides",
         help="Override a config value using dotted path, e.g. "
-             "--set pipeline.ocr_api.api_port 8080",
+        "--set pipeline.ocr_api.api_port 8080",
     )
 
     args = parser.parse_args()
@@ -191,7 +190,7 @@ def main():
 
         # Build dotted-path overrides from --set KEY VALUE pairs
         dotted_overrides: dict = {}
-        for key, value in (args.config_overrides or []):
+        for key, value in args.config_overrides or []:
             dotted_overrides[key] = _auto_coerce(value)
 
         with GlmOcr(config_path=args.config, _dotted=dotted_overrides) as glm_parser:
@@ -251,7 +250,9 @@ def main():
                         if not args.no_save:
                             save_dir = args.output
                             if input_root and result.original_images:
-                                rel = Path(result.original_images[0]).parent.relative_to(input_root)
+                                rel = Path(
+                                    result.original_images[0]
+                                ).parent.relative_to(input_root)
                                 if str(rel) != ".":
                                     save_dir = str(Path(args.output) / rel)
                             result.save(

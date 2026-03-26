@@ -32,7 +32,9 @@ class PipelineState:
     ):
         # ── Inter-thread queues ──────────────────────────────────────
         self.page_queue: queue.Queue[Dict[str, Any]] = queue.Queue(maxsize=page_maxsize)
-        self.region_queue: queue.Queue[Dict[str, Any]] = queue.Queue(maxsize=region_maxsize)
+        self.region_queue: queue.Queue[Dict[str, Any]] = queue.Queue(
+            maxsize=region_maxsize
+        )
 
         # ── Per-page data (stage 1 & 2 write, main thread reads) ─────
         self.images_dict: Dict[int, Any] = {}
@@ -78,8 +80,9 @@ class PipelineState:
         if tracker is not None:
             tracker.signal_shutdown()
 
-    def safe_put(self, q: queue.Queue, msg: Dict[str, Any],
-                 timeout: float = 0.5) -> bool:
+    def safe_put(
+        self, q: queue.Queue, msg: Dict[str, Any], timeout: float = 0.5
+    ) -> bool:
         """Put *msg* on *q*, returning ``False`` if shutdown was requested."""
         while not self._shutdown_event.is_set():
             try:
@@ -124,8 +127,7 @@ class PipelineState:
             tracker.on_region_done(page_idx)
 
     def get_grouped_results(self, page_indices: List[int]) -> List[List[Dict]]:
-        """Return recognition results grouped by page for the given indices.
-        """
+        """Return recognition results grouped by page for the given indices."""
         with self._results_lock:
             return [list(self._results_by_page.get(pi, [])) for pi in page_indices]
 
